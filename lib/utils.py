@@ -18,7 +18,8 @@ class Singleton(type):
     def __call__(cls, *args, **kwargs):
     
         if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+            cls._instances[cls] = super(Singleton, cls).__call__(*args,
+                **kwargs)
 
         #If you want to run __init__ every time the class is called, add
         #else:
@@ -42,7 +43,9 @@ class DynamicImporter:
         try:
             if os.path.isfile(self._path + '/' + self._module + '.py'):
                 
-                module_ = __import__(self._path + '.' + self._module, fromlist=[self._class])
+                module_ = __import__(self._path + '.' + self._module,
+                    fromlist=[self._class])
+
                 class_ = getattr(module_, self._class)
                 
                 instance = class_()

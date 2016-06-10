@@ -12,15 +12,15 @@ from dbmanager.lib.utils import Singleton
 
 
 class MysqlManager(object):
-	"""Manager for MySQL engine."""
-	
-	__metaclass__ = Singleton
+    """Manager for MySQL engine."""
+    
+    __metaclass__ = Singleton
 
-	def __init__(self):
-		super(MysqlManager,self).__init__()
-		#self.arg = arg
-		print 'MySQL instance created.'
+    def __init__(self):
+        super(MysqlManager,self).__init__()
+        #self.arg = arg
+        print 'MySQL instance created.'
 
-	def print_arg(self, value):
-		""" Test """
-		return value
+    def print_arg(self, value):
+        """ Test """
+        return value

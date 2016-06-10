@@ -22,46 +22,48 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
-	return 'running'
+    return 'running'
 
 
 @app.route('/dbmanager/<ddbb>', methods=['GET', 'POST'])
 def discriminator(ddbb):
 
-	manager_root_path = 'databases'
-	manager_module = ddbb
-	manager_class = ddbb + '_manager'
-	
-	dimporter = DynamicImporter(manager_root_path, manager_module, manager_class)
-	dbmanager = dimporter.instance_class()
+    manager_root_path = 'databases'
+    manager_module = ddbb
+    manager_class = ddbb + '_manager'
+    
+    dimporter = DynamicImporter(manager_root_path, manager_module, 
+        manager_class)
+    
+    dbmanager = dimporter.instance_class()
 
-	result = ''
+    result = ''
 
-	#JSON statement (native format)
-	if request.method == 'POST' and request.is_json:
+    #JSON statement (native format)
+    if request.method == 'POST' and request.is_json:
 
-		# send request to ddbb directly (Druid expects query in json format)
-		result = dbmanager.query('json', request.get_json())
-		
-	#SQL statement
-	elif request.method == 'POST':
-		
-		parser = SQLP()
-		for dicc in parser.parse(request.data):
-			
-			# One query per dicc in dicc-list:
+        # send request to ddbb directly (Druid expects query in json format)
+        result = dbmanager.query('json', request.get_json())
+        
+    #SQL statement
+    elif request.method == 'POST':
+        
+        parser = SQLP()
+        for dicc in parser.parse(request.data):
+            
+            # One query per dicc in dicc-list:
 
-			result += dbmanager.query('sql', dicc)
-	
-	return result
+            result += dbmanager.query('sql', dicc)
+    
+    return result
 
 
 with app.test_request_context():
-	print '********************'
-	print 'Available URLs:'
-	print url_for('index')
-	print url_for('discriminator', ddbb='druid')
-	print '********************'
+    print '********************'
+    print 'Available URLs:'
+    print url_for('index')
+    print url_for('discriminator', ddbb='druid')
+    print '********************'
 
 
 if __name__ == "__main__":
