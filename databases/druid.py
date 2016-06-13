@@ -34,14 +34,31 @@ class DruidManager(object):
             print 'Druid instance created.'
 
 
-    # def sql_to_json(self, dicc):
-    #   """ SQL to JSON converter. """
+    def sql_to_pydruid(self, dicc):
+        """ SQL to JSON converter. """
 
-    #   json_query = ''
+        # ---------------------- TODO ----------------------
+        datasource = dicc['FROM']
+        
+        intervals
 
-    #   return json_query
+        aggregations = dict()
+
+        
+        dimensions = dicc['GROUP BY']
+        filter 
+        metric
+        
+        post_aggregations
+        threshold
+        granularity
+
+        return (datasource, granularity, intervals, aggregations,
+            post_aggregations, dimensions, filter, metric, threshold)
 
 
+        #-----------------------------------------------------
+        
     def query(self, qtype, statement):
         """ Two types of queries: JSON (native format) or SQL.
             SQL statement looks like a dictionary where the keys
@@ -64,9 +81,14 @@ class DruidManager(object):
             # map SQL clauses to Druid query parameters:
             # ... TODO ...
 
-            query = PyDruid(self.urlconn, url_root_path)
+            query = PyDruid(self.urlconn, self.url_root_path)
 
-            # result = ...
+            # length of dimension list = type of query
+            #
+            #   - timeseries:           long (dimension) = 0
+            #   - topN:                 long (dimension) = 1
+            #   - groupby (nested topN):long (dimensiones) = 1..N
+            sql_to_pydruid(statement)
 
         else:
             raise NoExistingQuery
@@ -75,3 +97,36 @@ class DruidManager(object):
 
         return result
 
+
+
+#  ts = query.timeseries(
+# #     datasource='twitterstream',
+# #     granularity='day',
+# #     intervals='2014-02-02/p4w',
+# #     aggregations={'length': doublesum('tweet_length'), 'count': doublesum('count')},
+# #     post_aggregations={'avg_tweet_length': (Field('length') / Field('count'))},
+# #     filter=Dimension('first_hashtag') == 'sochi2014'
+# # )
+
+#  top = query.topn(
+# #     datasource='twitterstream',
+# #     granularity='all',
+# #     intervals='2014-03-03/p1d',  # utc time of 2014 oscars
+# #     aggregations={'count': doublesum('count')},
+# >>     dimension='user_mention_name',
+# #     filter=(Dimension('user_lang') == 'en') & (Dimension('first_hashtag') == 'oscars') &
+# #            (Dimension('user_time_zone') == 'Pacific Time (US & Canada)') &
+# #            ~(Dimension('user_mention_name') == 'No Mention'),
+# >>     metric='count',
+# >>     threshold=10
+# # )
+
+#  group = query.groupby(
+# #     datasource='twitterstream',
+# #     granularity='hour',
+# #     intervals='2013-10-04/pt12h',
+# >>     dimensions=["user_name", "reply_to_name"],
+# #     filter=(~(Dimension("reply_to_name") == "Not A Reply")) &
+# #            (Dimension("user_location") == "California"),
+# #     aggregations={"count": doublesum("count")}
+# # )

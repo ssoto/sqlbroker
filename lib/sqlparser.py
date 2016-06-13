@@ -58,6 +58,7 @@ class SQLParser(object):
                 if clause:
                         key = clause.group(1).__str__()
                         value = clause.group(2).__str__()
+                        print key, value
 
                         if key in keywords:
                             if key == 'WHERE':
@@ -68,8 +69,8 @@ class SQLParser(object):
 
                         # 'AND' / 'OR' senteneces
                         elif key.strip() in operators and flag_where:
-                            dicc['WHERE'] = dicc['WHERE'] + ' ' + key.strip() +
-                                ' '  + value
+                            dicc['WHERE'] = dicc['WHERE'] + ' ' + key.strip() \
+                                + ' '  + value
                             
             dicclist.append(dicc)
 
@@ -78,7 +79,7 @@ class SQLParser(object):
 
 if __name__ == '__main__':
 
-    sqlst = """select pepe AS pepito, pp, ddd
+    sqlst = """select GRANULARITY(day), pepe AS pepito, pp, ddd
             from pppp JOIN ppp2 on pppp.id1 = ppp2.id2
             where pppp.id1 BETWEEN 5 AND 7 and PPPP.id1 like \'%dd%\'
             and ppp2.id2 >= 3 GROUP by pepe, pp, ddd HAVING s >= 3 ORDER BY
