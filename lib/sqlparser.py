@@ -28,8 +28,8 @@ class SQLParser(object):
             print 'SQLParser instance created.'
 
 
-    #  'parse' method returns one dict by SQL statement.
-    def parse(self, sqlstatements):
+    #  'parse' method returns one dict whose keys are SQL clauses.
+    def parse(self, sqlstatement):
 
         keywords = ('SELECT', 'FROM', 'JOIN', 'WHERE', 'GROUP BY', 'HAVING',
             'ORDER BY', 'DISTINCT', 'INSERT INTO', 'UPDATE', 'DELETE FROM')
@@ -37,58 +37,46 @@ class SQLParser(object):
         operators = ('AND', 'OR')
         othersop = ('BETWEEN', 'ON', 'IN', 'LIKE')
 
-        statements = sqlparse.split(sqlstatements)
+        sql = sqlparse.format(sqlstatement, strip_comments=True,
+            reindent=True, indent_width=2, keyword_case='upper',
+            identifier_case='lower', wrap_after=100000).split('\n')
 
-        dicclist = list()
+        dicc = dict()
+        flag = False
 
-        #Split into SQL statements, if there is more than one 
-        for st in statements:
-            
-            sql = sqlparse.format(st, strip_comments=True,
-                reindent=True, indent_width='2', keyword_case='upper',
-                identifier_case='lower', wrap_after=100000).split('\n')
+        for line in sql:
 
-            dicc = dict()
-            flag_where = False
+            clause = re.match(r'^(\s*[A-Z]*\s?[A-Z]*) (.*)$', line,
+                re.M|re.S )
 
-            for line in sql:
-                clause = re.match(r'^(\s*[A-Z]+\s?[A-Z]*) (.*)$', line,
-                    re.M|re.S )
+            key = clause.group(1).__str__().strip()
+            value = clause.group(2).__str__()
 
-                if clause:
-                        key = clause.group(1).__str__()
-                        value = clause.group(2).__str__()
-                        print key, value
+            # key contained in keywords:
+            if key in keywords:
+                dicc[key] = value
+                keybefore = key
 
-                        if key in keywords:
-                            if key == 'WHERE':
-                                flag_where = True
-                            else:
-                                flag_where = False
-                            dicc[key] = value
+            # value that belongs to the previous key (empty key):
+            elif key == '':
+                dicc[keybefore] = dicc[keybefore] + ' ' + value
 
-                        # 'AND' / 'OR' senteneces
-                        elif key.strip() in operators and flag_where:
-                            dicc['WHERE'] = dicc['WHERE'] + ' ' + key.strip() \
-                                + ' '  + value
-                            
-            dicclist.append(dicc)
+            # 'AND', 'OR' sentences that belong to previous key too:
+            elif key in operators:
+                dicc[keybefore] = dicc[keybefore] + ' ' + key + ' '  + \
+                    value
 
-        return dicclist
+        return dicc
 
 
 if __name__ == '__main__':
 
     sqlst = """select GRANULARITY(day), pepe AS pepito, pp, ddd
             from pppp JOIN ppp2 on pppp.id1 = ppp2.id2
-            where pppp.id1 BETWEEN 5 AND 7 and PPPP.id1 like \'%dd%\'
+            where pppp.id1 BETWEEN 5 AND 7 and PPPP.id1 like '%dd%'
             and ppp2.id2 >= 3 GROUP by pepe, pp, ddd HAVING s >= 3 ORDER BY
-            pepe DESC;
-            select aaa from BBBB;"""
+            pepe DESC"""
 
-    lista = SQLParser()
+    statement = SQLParser()
 
-    for dicc in lista.parse(sqlst):
-        #if 'WHERE' in dicc:
-        #   print dicc['WHERE']
-        print dicc
+    print statement.parse(sqlst)

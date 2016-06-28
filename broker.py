@@ -13,8 +13,7 @@ import json
 
 from flask import Flask, request, url_for
 
-from sqlbroker.settings import DEBUG
-from sqlbroker.lib.sqlparser import SQLParser as SQLP
+from sqlbroker.settings import DEBUG, DBACCESS
 from sqlbroker.lib.utils import DynamicImporter
 
 
@@ -39,31 +38,32 @@ def discriminator(ddbb):
 
     result = ''
 
-    #JSON statement (native format)
+    #JSON statement (native format):
     if request.method == 'POST' and request.is_json:
 
         # send request to ddbb directly (Druid expects query in json format)
         result = dbmanager.query('json', request.get_json())
         
-    #SQL statement
+    #In another case, request body is supposed to be a SQL statement:
     elif request.method == 'POST':
-        
-        parser = SQLP()
-        for dicc in parser.parse(request.data):
-            
-            # One query per dicc in dicc-list:
 
-            result += dbmanager.query('sql', dicc)
-    
+    # TODO: separar sentencias SQL en sentencias simples y hacer varias llamadas:
+        for statement in request.data.__str__().split(';'):
+            st = statement.strip()
+
+            if st != '':
+                res = dbmanager.query('sql', st) #.__str__()
+                result += res
+
     return result
 
 
 with app.test_request_context():
-    print '********************'
+    print '---------------------------------'
     print 'Available URLs:'
     print url_for('index')
-    print url_for('discriminator', ddbb='druid')
-    print '********************'
+    print url_for('discriminator', ddbb='ddbb')
+    print '---------------------------------'
 
 
 if __name__ == "__main__":

@@ -9,9 +9,13 @@
 """
 
 import requests
+
 from pydruid.client import PyDruid
+from pydruid.utils.aggregators import *
+
 from sqlbroker.settings import DBACCESS, DEBUG
 from sqlbroker.lib.utils import Singleton, NoExistingQuery
+from sqlbroker.lib.sqlparser import SQLParser as SQLP
 
 
 class DruidManager(object):
@@ -20,14 +24,19 @@ class DruidManager(object):
     __metaclass__ = Singleton
 
     def __init__(self):
-        super(DruidManager,self).__init__()
-        #self.arg = arg
-        self.proto = DBACCESS[druid][data][protocol]
-        self.host = DBACCESS[druid][data][host]
-        self.port = DBACCESS[druid][data][port]
-        self.url_root_path = DBACCESS[druid][data][url_root_path]
 
-        self.urlconn = self.proto + '://' + self.host + ':' port
+        super(DruidManager,self).__init__()
+
+        self._proto = DBACCESS['druid']['data']['protocol']
+        self._host = DBACCESS['druid']['data']['host']
+        self._port = DBACCESS['druid']['data']['port']
+        self._url_root_path = DBACCESS['druid']['data']['url_root_path']
+
+        self._urlconn = self._proto + '://' + self._host + ':' + \
+            self._port.__str__()
+
+        # Druid connection:
+        self._query = PyDruid(self._urlconn, self._url_root_path)
 
         # For console debugging:
         if DEBUG == True:
@@ -37,28 +46,31 @@ class DruidManager(object):
     def sql_to_pydruid(self, dicc):
         """ SQL to JSON converter. """
 
-        # ---------------------- TODO ----------------------
-        datasource = dicc['FROM']
+        #-----------------------------------------------------
+        # TODO: replace fixed params by SQL clause values
+
+        params = dict()
+
+        params['datasource'] = dicc['FROM']
+        params['intervals'] = '2015-08-01T00:00:00.000/2015-08-02T00:00:00.000'
+
+        params['aggregations'] = dict()
+        params['aggregations']['Totalinbytes'] = "doublesum('inbytes')"
+
         
-        intervals
-
-        aggregations = dict()
-
+        params['dimensions'] = dicc['GROUP BY']
+        params['filter'] = ''
+        params['metric'] = 'Totalinbytes'
         
-        dimensions = dicc['GROUP BY']
-        filter 
-        metric
-        
-        post_aggregations
-        threshold
-        granularity
+        params['post_aggregations'] = dict()
+        params['threshold'] = 10
+        params['granularity'] = 'hour'
 
-        return (datasource, granularity, intervals, aggregations,
-            post_aggregations, dimensions, filter, metric, threshold)
-
+        return params
 
         #-----------------------------------------------------
-        
+   
+
     def query(self, qtype, statement):
         """ Two types of queries: JSON (native format) or SQL.
             SQL statement looks like a dictionary where the keys
@@ -68,34 +80,74 @@ class DruidManager(object):
 
         if qtype == 'json':
             # Native query for tests using 'requests' module
-            # ... TODO ...
 
-            # result = ...
+            # TODO **************
+
+            pass
 
         elif qtype == 'sql':
             # SQL query will be traduced to paramenters PyDruid understands.
-            #json_query = sql_to_json(statement)
-
             
-
+            # SQL statements to list of dictionaries with SQL clauses as keys,
+            # one query per dicc in dicc-list:
+            parser = SQLP()
+            dicc = parser.parse(statement)
+            
             # map SQL clauses to Druid query parameters:
-            # ... TODO ...
-
-            query = PyDruid(self.urlconn, self.url_root_path)
+            params = self.sql_to_pydruid(dicc)
 
             # length of dimension list = type of query
             #
             #   - timeseries:           long (dimension) = 0
             #   - topN:                 long (dimension) = 1
             #   - groupby (nested topN):long (dimensiones) = 1..N
-            sql_to_pydruid(statement)
+
+            num_dim = list(dicc['GROUP BY'].split(',')).__len__()
+
+            if num_dim == 0:
+                type_ = 'timeseries'
+                
+                result = self._query[type_](
+                    datasource=params['datasource'],
+                    granularity=params['granularity'],
+                    intervals=params['intervals'],
+                    aggregations=params['aggregations'],
+                    post_aggregations=params['post_aggregations'],
+                    filter=params['filter']
+                )
+
+            elif num_dim == 1:
+                type_ = 'topn'
+
+                result = self._query.topn(
+                    #datasource=params['datasource'],
+                    # granularity=params['granularity'],
+                    intervals=params['intervals'],
+                    # # aggregations=params['aggregations'],
+                    # post_aggregations=params['post_aggregations'],
+                    # filter=params['filter'],
+                    # dimension=params['dimensions'],
+                    # metric=params['metric'],
+                    # threshold=params['threshold']
+                    datasource='Netflow6m',
+                    granularity='day',
+                    aggregations={'Totalinbytes': doublesum('inbytes')},
+                    dimension='ipv4src',
+                    #filter=(Dimension('ipv4src') == val),
+                    metric='Totalinbytes',
+                    threshold=10
+                )
+
+            else:
+                type_ = 'groupby'
+                result = '{ "state": "toDo"}'                
 
         else:
             raise NoExistingQuery
 
 
 
-        return result
+        return result.result_json
 
 
 

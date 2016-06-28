@@ -15,14 +15,15 @@ DBACCESS = {
         'data': {
             'host': '',
             'port': 3306,
-            'db': '',
+            'db': 'wan',
             'user': '',
-            'passwd': ''
+            'passwd': '',
+            'protocol': 'mysql'
         }
     },
     'druid': {
         'data': {
-            'host': '',
+            'host': 'D-RSC-WAN-DRU05.wtelecom.es',
             'port': 8080,
             'db': '',
             'user': '',
