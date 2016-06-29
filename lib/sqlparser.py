@@ -31,12 +31,6 @@ class SQLParser(object):
     #  'parse' method returns one dict whose keys are SQL clauses.
     def parse(self, sqlstatement):
 
-        keywords = ('SELECT', 'FROM', 'JOIN', 'WHERE', 'GROUP BY', 'HAVING',
-            'ORDER BY', 'DISTINCT', 'INSERT INTO', 'UPDATE', 'DELETE FROM')
-
-        operators = ('AND', 'OR')
-        othersop = ('BETWEEN', 'ON', 'IN', 'LIKE')
-
         sql = sqlparse.format(sqlstatement, strip_comments=True,
             reindent=True, indent_width=2, keyword_case='upper',
             identifier_case='lower', wrap_after=100000).split('\n')
@@ -45,37 +39,22 @@ class SQLParser(object):
         flag = False
 
         for line in sql:
+        
+            clause = re.match(r'^(\s*[A-Z]*\s?[A-Z]*)(.*)$', line, re.M|re.S)
 
-            clause = re.match(r'^(\s*[A-Z]*\s?[A-Z]*) (.*)$', line,
-                re.M|re.S )
-
-            key = clause.group(1).__str__().strip()
-            value = clause.group(2).__str__()
-
-            # key contained in keywords:
-            if key in keywords:
-                dicc[key] = value
-                keybefore = key
-
-            # value that belongs to the previous key (empty key):
-            elif key == '':
-                dicc[keybefore] = dicc[keybefore] + ' ' + value
-
-            # 'AND', 'OR' sentences that belong to previous key too:
-            elif key in operators:
-                dicc[keybefore] = dicc[keybefore] + ' ' + key + ' '  + \
-                    value
+            dicc[clause.group(1).__str__().strip()] = clause.group(2).__str__()
 
         return dicc
 
 
 if __name__ == '__main__':
 
-    sqlst = """select GRANULARITY(day), pepe AS pepito, pp, ddd
+    sqlst = """select pepe AS pepito, pp, ddd GRANULARITY 3600
+            qinterval '2015-08-01/2015-08-02'
             from pppp JOIN ppp2 on pppp.id1 = ppp2.id2
             where pppp.id1 BETWEEN 5 AND 7 and PPPP.id1 like '%dd%'
             and ppp2.id2 >= 3 GROUP by pepe, pp, ddd HAVING s >= 3 ORDER BY
-            pepe DESC"""
+            pepe DESC limit 10"""
 
     statement = SQLParser()
 
