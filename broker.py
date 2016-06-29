@@ -52,7 +52,7 @@ def discriminator(ddbb):
             st = statement.strip()
 
             if st != '':
-                res = dbmanager.query('sql', st) #.__str__()
+                res = dbmanager.query('sql', st).__str__()
                 result += res
 
     return result

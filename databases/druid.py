@@ -8,6 +8,7 @@
 .. moduleauthor:: Ignacio Campos Rivera <icamposrivera@gmail.com>
 """
 
+import re
 import requests
 
 from pydruid.client import PyDruid
@@ -52,19 +53,21 @@ class DruidManager(object):
         params = dict()
 
         params['datasource'] = dicc['FROM']
-        params['intervals'] = '2015-08-01T00:00:00.000/2015-08-02T00:00:00.000'
+        params['intervals'] = dicc['QINTERVAL']
 
         params['aggregations'] = dict()
-        params['aggregations']['Totalinbytes'] = "doublesum('inbytes')"
+        params['aggregations']['Totalinbytes'] = doublesum('inbytes')
 
         
         params['dimensions'] = dicc['GROUP BY']
         params['filter'] = ''
-        params['metric'] = 'Totalinbytes'
-        
+        #params['metric'] = 'Totalinbytes'
+        params['metric'] = re.sub(r'\s(DE|A)SC','', dicc['ORDER BY'])
+        print params['metric']
         params['post_aggregations'] = dict()
-        params['threshold'] = 10
-        params['granularity'] = 'hour'
+
+        params['threshold'] = dicc['LIMIT']
+        params['granularity'] = dicc['GRANULARITY']
 
         return params
 
@@ -117,25 +120,16 @@ class DruidManager(object):
                 )
 
             elif num_dim == 1:
-                type_ = 'topn'
-
                 result = self._query.topn(
-                    #datasource=params['datasource'],
-                    # granularity=params['granularity'],
+                    datasource=params['datasource'],
+                    granularity=params['granularity'],
                     intervals=params['intervals'],
-                    # # aggregations=params['aggregations'],
-                    # post_aggregations=params['post_aggregations'],
-                    # filter=params['filter'],
-                    # dimension=params['dimensions'],
-                    # metric=params['metric'],
-                    # threshold=params['threshold']
-                    datasource='Netflow6m',
-                    granularity='day',
-                    aggregations={'Totalinbytes': doublesum('inbytes')},
-                    dimension='ipv4src',
-                    #filter=(Dimension('ipv4src') == val),
-                    metric='Totalinbytes',
-                    threshold=10
+                    aggregations=params['aggregations'],
+                    post_aggregations=params['post_aggregations'],
+                    #filter=params['filter'],
+                    dimension=params['dimensions'],
+                    metric=params['metric'],
+                    threshold=params['threshold']
                 )
 
             else:

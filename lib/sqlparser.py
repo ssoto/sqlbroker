@@ -33,16 +33,18 @@ class SQLParser(object):
 
         sql = sqlparse.format(sqlstatement, strip_comments=True,
             reindent=True, indent_width=2, keyword_case='upper',
-            identifier_case='lower', wrap_after=100000).split('\n')
+            #identifier_case='lower', wrap_after=100000).split('\n')
+            wrap_after=100000).split('\n')
 
         dicc = dict()
         flag = False
 
         for line in sql:
         
-            clause = re.match(r'^(\s*[A-Z]*\s?[A-Z]*)(.*)$', line, re.M|re.S)
+            clause = re.match(r'^(\s*[A-Z]*\s?[A-Z]*)\s(.*)$', line, re.M|re.S)
 
-            dicc[clause.group(1).__str__().strip()] = clause.group(2).__str__()
+            dicc[clause.group(1).__str__().strip()] = \
+                clause.group(2).__str__().strip()
 
         return dicc
 
