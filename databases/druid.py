@@ -9,10 +9,13 @@
 """
 
 import re
+import time
 import requests
 
 from pydruid.client import PyDruid
 from pydruid.utils.aggregators import *
+from pydruid.utils import filters
+from pydruid.utils.filters import *
 
 from sqlbroker.settings import DBACCESS, DEBUG
 from sqlbroker.lib.utils import Singleton, NoExistingQuery
@@ -52,22 +55,67 @@ class DruidManager(object):
 
         params = dict()
 
-        params['datasource'] = dicc['FROM']
-        params['intervals'] = dicc['QINTERVAL']
+        # Datasource:
+        params['datasource'] = dicc['FROM'] if dicc['FROM'] else ''
 
+        # Define query interval and granularity:
+        params['intervals'] = dicc['QINTERVAL'] if dicc['QINTERVAL'] else ''
+        params['granularity'] = dicc['GRANULARITY'] if dicc['GRANULARITY'] \
+            else ''
+
+        # Parse GROUPBY chain: grouping
+        params['dimensions'] = dicc['GROUP BY'] if dicc['GROUP BY'] else ''
+        params['metric'] = re.sub(r'\s(DE|A)SC','', dicc['ORDER BY']) if \
+            dicc['ORDER BY'] else ''
+
+        # Parse LIMIT chain
+        params['threshold'] = dicc['LIMIT'] if dicc['LIMIT'] else ''
+
+        # def filter_dimension(match):
+        #     id_ = match.group('id')
+        #     op = match.group('op')
+        #     value = match.group('value')
+        #     print '***', eval('Dimension(\'%s\') %s %s' % (id_, op, value))
+        #     return eval('Dimension(\'%s\') %s %s' % (id_, op, value))
+            
+
+
+        # # Parse WHERE chain
+        if dicc['WHERE']:
+            # pattern = re.compile(r'(?P<id>[\w.]+)\s?(?P<op>==)\s?(?P<value>[\w.-]+|[\'\"].*?[\'\"])')
+            
+            # clauses_ = pattern.sub(filter_dimension, dicc['WHERE'])
+            # print '###', clauses_
+
+            clauses_ = re.sub(
+                r'(?P<id>[\w.]+)\s?(?P<op>[<>]=?)\s?(?P<value>[\w.-]+|[\'\"].*?[\'\"])',
+                '(getattr(filters,\'JavaScript\')(\'\g<id>\') = \"function(v) { return v \g<op> \g<value> }\")',
+                dicc['WHERE'],
+                re.M|re.S)
+
+            clauses = re.sub(
+                r'(?P<id>[\w.]+)\s?(?P<op>\!=|=)\s?(?P<value>[\w.-]+|[\'\"].*?[\'\"])',
+                '(getattr(filters,\'Dimension\')(\'\g<id>\') \g<op> \g<value>)',
+                clauses_,
+                re.M|re.S)
+
+            conditions_ = re.sub(r'[^<>!]=', ' ==', clauses, re.M|re.S)
+            conditions_ = re.sub(r'AND', '&', conditions_, re.M|re.S)
+
+            conditions = re.sub(r'OR', '|', conditions_, re.M|re.S)
+            print conditions
+            params['filter'] = conditions
+
+        else:
+            params['filter'] = ''
+
+        # TODO: parse SELECT (aggregations), HAVING clause (grouping conditions)
+
+        # Parse SELECT aggs and match with GROUP BY        
         params['aggregations'] = dict()
         params['aggregations']['Totalinbytes'] = doublesum('inbytes')
 
-        
-        params['dimensions'] = dicc['GROUP BY']
-        params['filter'] = ''
-        #params['metric'] = 'Totalinbytes'
-        params['metric'] = re.sub(r'\s(DE|A)SC','', dicc['ORDER BY'])
-        print params['metric']
         params['post_aggregations'] = dict()
-
-        params['threshold'] = dicc['LIMIT']
-        params['granularity'] = dicc['GRANULARITY']
 
         return params
 
@@ -105,43 +153,56 @@ class DruidManager(object):
             #   - topN:                 long (dimension) = 1
             #   - groupby (nested topN):long (dimensiones) = 1..N
 
-            num_dim = list(dicc['GROUP BY'].split(',')).__len__()
+            num_dim = list(params['dimensions'].split(',')).__len__()
+            
+            # Current time on UNIX timestamp format
+            ts = time.time().__str__()
 
             if num_dim == 0:
-                type_ = 'timeseries'
-                
+                query_id = "tseries-" + ts.__str__()
+                print "Query-ID:", query_id
+
                 result = self._query[type_](
                     datasource=params['datasource'],
                     granularity=params['granularity'],
                     intervals=params['intervals'],
                     aggregations=params['aggregations'],
                     post_aggregations=params['post_aggregations'],
-                    filter=params['filter']
+                    filter=params['filter'],
+                    context={"timeout": 60000, "queryId": query_id}
                 )
 
+                result = result.result_json
+
             elif num_dim == 1:
+                query_id = "topn-" + ts.__str__()
+                print "Query-ID:", query_id
+
                 result = self._query.topn(
                     datasource=params['datasource'],
                     granularity=params['granularity'],
                     intervals=params['intervals'],
                     aggregations=params['aggregations'],
                     post_aggregations=params['post_aggregations'],
-                    #filter=params['filter'],
+                    filter=eval(params['filter']),
                     dimension=params['dimensions'],
                     metric=params['metric'],
-                    threshold=params['threshold']
+                    threshold=params['threshold'],
+                    context={"timeout": 60000, "queryId": query_id}
                 )
 
+                result = result.result_json
+
             else:
-                type_ = 'groupby'
+                query_id = "gby-" + ts.__str__()
+                print "Query-ID:", query_id
+
                 result = '{ "state": "toDo"}'                
 
         else:
             raise NoExistingQuery
 
-
-
-        return result.result_json
+        return result
 
 
 
@@ -160,9 +221,9 @@ class DruidManager(object):
 # #     intervals='2014-03-03/p1d',  # utc time of 2014 oscars
 # #     aggregations={'count': doublesum('count')},
 # >>     dimension='user_mention_name',
-# #     filter=(Dimension('user_lang') == 'en') & (Dimension('first_hashtag') == 'oscars') &
-# #            (Dimension('user_time_zone') == 'Pacific Time (US & Canada)') &
-# #            ~(Dimension('user_mention_name') == 'No Mention'),
+     # filter=(Dimension('user_lang') == 'en') & (Dimension('first_hashtag') == 'oscars') &
+     #        (Dimension('user_time_zone') == 'Pacific Time (US & Canada)') &
+     #        ~(Dimension('user_mention_name') == 'No Mention'),
 # >>     metric='count',
 # >>     threshold=10
 # # )

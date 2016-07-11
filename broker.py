@@ -53,6 +53,8 @@ def discriminator(ddbb):
 
             if st != '':
                 res = dbmanager.query('sql', st).__str__()
+
+                # TODO: parse 'res'
                 result += res
 
     return result
