@@ -103,14 +103,16 @@ class DruidManager(object):
         #TODO: parse SELECT (aggregations), HAVING clause (grouping conditions)
 
         # Parse SELECT aggs and match with GROUP BY
-        aggs_keys = ('SUM', 'AVG', 'MIN', 'MAX', 'COUNT')
+        #aggs_keys = ('SUM', 'AVG', 'MIN', 'MAX', 'COUNT')
 
-        clauses_ = re.sub(
-                r'(?P<id>[\w.]+)\s?(?P<op>[<>]=?)\s?(?P<value>[\w.-]+|[\'\"].*?[\'\"])',
-                '(getattr(filters,\'JavaScript\')(\'\g<id>\') = \"function(v) { return v \g<op> \g<value> }\")',
-                dicc['WHERE'],
+        clauses = re.sub(
+                r'(?P<op>SUM|AVG|MIN|MAX|COUNT)\s?\(\s?(?P<value>[\w.-]+)\s?\)\s?(?P<alias>AS)\s?(?(alias)[\w.-]+)',
+                'agg[\g<4>] = \g<op>(\g<value>)',
+                dicc['SELECT'],
                 re.M|re.S)
 
+        print 'SELECT', clauses
+        
         params['aggregations'] = dict()
         params['aggregations']['Totalinbytes'] = doublesum('inbytes')
 
