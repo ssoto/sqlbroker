@@ -71,15 +71,6 @@ class DruidManager(object):
         # Parse LIMIT chain
         params['threshold'] = dicc['LIMIT'] if dicc['LIMIT'] else ''
 
-        # def filter_dimension(match):
-        #     id_ = match.group('id')
-        #     op = match.group('op')
-        #     value = match.group('value')
-        #     print '***', eval('Dimension(\'%s\') %s %s' % (id_, op, value))
-        #     return eval('Dimension(\'%s\') %s %s' % (id_, op, value))
-            
-
-
         # # Parse WHERE chain
         if dicc['WHERE']:
             # pattern = re.compile(r'(?P<id>[\w.]+)\s?(?P<op>==)\s?(?P<value>[\w.-]+|[\'\"].*?[\'\"])')
@@ -109,9 +100,17 @@ class DruidManager(object):
         else:
             params['filter'] = ''
 
-        # TODO: parse SELECT (aggregations), HAVING clause (grouping conditions)
+        #TODO: parse SELECT (aggregations), HAVING clause (grouping conditions)
 
-        # Parse SELECT aggs and match with GROUP BY        
+        # Parse SELECT aggs and match with GROUP BY
+        aggs_keys = ('SUM', 'AVG', 'MIN', 'MAX', 'COUNT')
+
+        clauses_ = re.sub(
+                r'(?P<id>[\w.]+)\s?(?P<op>[<>]=?)\s?(?P<value>[\w.-]+|[\'\"].*?[\'\"])',
+                '(getattr(filters,\'JavaScript\')(\'\g<id>\') = \"function(v) { return v \g<op> \g<value> }\")',
+                dicc['WHERE'],
+                re.M|re.S)
+
         params['aggregations'] = dict()
         params['aggregations']['Totalinbytes'] = doublesum('inbytes')
 
