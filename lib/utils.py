@@ -80,8 +80,8 @@ class NoDDBB(Exception):
         return repr(self.arg)
 
 
-class NoExistingQuery(Exception):
-    """No existing DDBB exception."""
+class QueryError(Exception):
+    """Malformed Query exception."""
 
     def __init__(self, arg):
         super(Exception, self).__init__()

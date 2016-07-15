@@ -14,7 +14,7 @@ import json
 from flask import Flask, request, url_for
 
 from sqlbroker.settings import DEBUG, DBACCESS
-from sqlbroker.lib.utils import DynamicImporter
+from sqlbroker.lib.utils import DynamicImporter, QueryError
 
 
 app = Flask(__name__)
@@ -42,8 +42,16 @@ def discriminator(ddbb):
     if request.method == 'POST' and request.is_json:
 
         # send request to ddbb directly (Druid expects query in json format)
-        result = dbmanager.query('json', request.get_json())
-        
+        try:
+            data = dbmanager.query('json', request.get_json())
+            status = 'ok'
+            res = {'status': status, 'data': data}
+            result = res.__str__()
+
+        except Exception as err:
+            status = 'error'
+            result = {'status': status, 'error': err}
+            
     #In another case, request body is supposed to be a SQL statement:
     elif request.method == 'POST':
 
@@ -52,10 +60,18 @@ def discriminator(ddbb):
             st = statement.strip()
 
             if st != '':
-                res = dbmanager.query('sql', st).__str__()
+                try:
+                    data = dbmanager.query('sql', st).__str__()
+                    status = 'ok'
+                    res = {'status': status, 'data': data}
 
-                # TODO: parse 'res'
-                result += res
+                    # TODO: parse 'res'
+                    result += res.__str__()
+
+                except Exception as err:
+                    status = 'error'
+                    result = {'status': status, 'error': err}
+                    break
 
     return result
 
