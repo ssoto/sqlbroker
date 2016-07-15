@@ -25,7 +25,7 @@ def index():
 
 
 @app.route('/dbmanager/<ddbb>', methods=['GET', 'POST'])
-def discriminator(ddbb):
+def launch_query(ddbb):
 
     manager_root_path = 'databases'
     manager_module = ddbb
@@ -62,15 +62,15 @@ def discriminator(ddbb):
             if st != '':
                 try:
                     data = dbmanager.query('sql', st).__str__()
-                    status = 'ok'
-                    res = {'status': status, 'data': data}
+                    status = "ok"
+                    res = {"status": status, "data": data}
 
                     # TODO: parse 'res'
                     result += res.__str__()
 
                 except Exception as err:
-                    status = 'error'
-                    result = {'status': status, 'error': err}
+                    status = "error"
+                    result = json.dumps({"status": status, "description": err.__str__()})
                     break
 
     return result
@@ -80,7 +80,7 @@ with app.test_request_context():
     print '---------------------------------'
     print 'Available URLs:'
     print url_for('index')
-    print url_for('discriminator', ddbb='ddbb')
+    print url_for('launch_query', ddbb='ddbb')
     print '---------------------------------'
 
 

@@ -29,7 +29,8 @@ DBACCESS = {
             'user': '',
             'passwd': '',
             'protocol': 'http',
-            'url_root_path': 'druid/v2/'
+            'url_root_path': 'druid/v2/',
+            'query_timeout': 60000  # milisec
         }
     },
     'elasticsearch': {

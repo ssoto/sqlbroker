@@ -39,6 +39,7 @@ class DruidManager(object):
         self._host = DBACCESS['druid']['data']['host']
         self._port = DBACCESS['druid']['data']['port']
         self._url_root_path = DBACCESS['druid']['data']['url_root_path']
+        self._qtimeout = DBACCESS['druid']['data']['query_timeout']
 
         self._urlconn = self._proto + '://' + self._host + ':' + \
             self._port.__str__()
@@ -232,30 +233,37 @@ class DruidManager(object):
                 #   - topN:                 long (dimension) = 1
                 #   - groupby (nested topN):long (dimensiones) = 1..N
 
-                num_dim = list(params['dimensions'].split(',')).__len__()
+                if 'dimensions' in params:
+                    num_dim = list(params['dimensions'].split(',')).__len__()
+                else:
+                    num_dim = 0
                 
                 # Current time on UNIX timestamp format
                 ts = time.time().__str__()
 
                 if num_dim == 0:
                     query_id = "tseries-" + ts.__str__()
-                    print "Query-ID:", query_id
+                    
+                    if DEBUG:
+                        print "Query-ID:", query_id
 
-                    result = self._query[type_](
+                    result = self._query.timeseries(
                         datasource=params['datasource'],
                         granularity=params['granularity'],
                         intervals=params['intervals'],
                         aggregations=params['aggregations'],
                         post_aggregations=params['post_aggregations'],
-                        filter=params['filter'],
-                        context={"timeout": 60000, "queryId": query_id}
+                        filter=eval(params['filter']),
+                        context={"timeout": self._qtimeout, "queryId": query_id}
                     )
 
                     result = result.result_json
 
                 elif num_dim == 1:
                     query_id = "topn-" + ts.__str__()
-                    print "Query-ID:", query_id
+
+                    if DEBUG:
+                        print "Query-ID:", query_id
 
                     result = self._query.topn(
                         datasource=params['datasource'],
@@ -267,21 +275,28 @@ class DruidManager(object):
                         dimension=params['dimensions'],
                         metric=params['metric'],
                         threshold=params['threshold'],
-                        context={"timeout": 60000, "queryId": query_id}
+                        context={"timeout": self._qtimeout, "queryId": query_id}
                     )
 
                     result = result.result_json
 
                 else:
                     query_id = "gby-" + ts.__str__()
-                    print "Query-ID:", query_id
+
+                    if DEBUG:
+                        print "Query-ID:", query_id
 
                     result = '{ "state": "toDo"}'                
 
-            except QueryError as err:
+            except Exception as err:
                 # Re-launch exception to manage in main program:
-                raise QueryError(err)
-                #result = err.__str__()
+                
+                if DEBUG:
+                    import traceback
+                    traceback.print_exc()
+                    
+                # Launch last exception:
+                raise
     
         else:
             #result = 'Query type no recognized.'
@@ -290,37 +305,39 @@ class DruidManager(object):
         return result
 
 
-       
 
+# ----------------------------------------------------------------------------
+# Query examples:
+# ----------------------------------------------------------------------------
 
 #  ts = query.timeseries(
-# #     datasource='twitterstream',
-# #     granularity='day',
-# #     intervals='2014-02-02/p4w',
-# #     aggregations={'length': doublesum('tweet_length'), 'count': doublesum('count')},
-# #     post_aggregations={'avg_tweet_length': (Field('length') / Field('count'))},
-# #     filter=Dimension('first_hashtag') == 'sochi2014'
-# # )
+#      datasource='twitterstream',
+#      granularity='day',
+#      intervals='2014-02-02/p4w',
+#      aggregations={'length': doublesum('tweet_length'), 'count': doublesum('count')},
+#      post_aggregations={'avg_tweet_length': (Field('length') / Field('count'))},
+#      filter=Dimension('first_hashtag') == 'sochi2014'
+#  )
 
 #  top = query.topn(
-# #     datasource='twitterstream',
-# #     granularity='all',
-# #     intervals='2014-03-03/p1d',  # utc time of 2014 oscars
-# #     aggregations={'count': doublesum('count')},
-# >>     dimension='user_mention_name',
-     # filter=(Dimension('user_lang') == 'en') & (Dimension('first_hashtag') == 'oscars') &
-     #        (Dimension('user_time_zone') == 'Pacific Time (US & Canada)') &
-     #        ~(Dimension('user_mention_name') == 'No Mention'),
-# >>     metric='count',
-# >>     threshold=10
-# # )
+#      datasource='twitterstream',
+#      granularity='all',
+#      intervals='2014-03-03/p1d',  # utc time of 2014 oscars
+#      aggregations={'count': doublesum('count')},
+#*#     dimension='user_mention_name',
+#      filter=(Dimension('user_lang') == 'en') & (Dimension('first_hashtag') == 'oscars') &
+#      (Dimension('user_time_zone') == 'Pacific Time (US & Canada)') &
+#      ~(Dimension('user_mention_name') == 'No Mention'),
+#*#      metric='count',
+#*#      threshold=10
+#  )
 
 #  group = query.groupby(
-# #     datasource='twitterstream',
-# #     granularity='hour',
-# #     intervals='2013-10-04/pt12h',
-# >>     dimensions=["user_name", "reply_to_name"],
-# #     filter=(~(Dimension("reply_to_name") == "Not A Reply")) &
-# #            (Dimension("user_location") == "California"),
-# #     aggregations={"count": doublesum("count")}
-# # )
+#      datasource='twitterstream',
+#      granularity='hour',
+#      intervals='2013-10-04/pt12h',
+#*#     dimensions=["user_name", "reply_to_name"],
+#     filter=(~(Dimension("reply_to_name") == "Not A Reply")) &
+#             (Dimension("user_location") == "California"),
+#      aggregations={"count": doublesum("count")}
+#  )
