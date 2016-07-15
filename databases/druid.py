@@ -294,7 +294,7 @@ class DruidManager(object):
                 if DEBUG:
                     import traceback
                     traceback.print_exc()
-                    
+
                 # Launch last exception:
                 raise
     
@@ -307,7 +307,7 @@ class DruidManager(object):
 
 
 # ----------------------------------------------------------------------------
-# Query examples:
+# Pydruid query examples:
 # ----------------------------------------------------------------------------
 
 #  ts = query.timeseries(
