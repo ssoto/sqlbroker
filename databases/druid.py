@@ -10,7 +10,8 @@
 
 import re
 import time
-import requests
+from math import ceil
+#import requests
 
 from pydruid.client import PyDruid
 from pydruid.utils import filters
@@ -40,6 +41,12 @@ class DruidManager(object):
         self._port = DBACCESS['druid']['data']['port']
         self._url_root_path = DBACCESS['druid']['data']['url_root_path']
         self._qtimeout = DBACCESS['druid']['data']['query_timeout']
+        self._qlimit = DBACCESS['druid']['data']['query_limit']
+
+        self._granularities = {'second': 'PT1S', 'minute': 'PT1M',
+            'fifteen_minute': 'PT15M', 'thirty_minute': 'PT30M', 'hour': 'PT1H',
+            'day': 'P1D', 'week': 'P1W', 'month': 'P1M', 'quarter': 'P3M',
+            'year': 'P1Y'}
 
         self._urlconn = self._proto + '://' + self._host + ':' + \
             self._port.__str__()
@@ -73,10 +80,9 @@ class DruidManager(object):
             raise QueryError('Undefined query time interval (qinterval)')
 
         if 'GRANULARITY' in dicc:
-            params['granularity'] = dicc['GRANULARITY']
+            params['granularity'] = dicc['GRANULARITY'].lower()
         else:
             raise QueryError('Undefined time granularity (granularity)')
-
 
         # Parse GROUP_BY chain: grouping
         # >> If no GROUP_BY clause is defined, query will be processed as a
@@ -89,8 +95,10 @@ class DruidManager(object):
             params['metric'] = re.sub(r'\s(DE|A)SC','', dicc['ORDER BY'])
 
         # Parse LIMIT clause for TopN queries:
-        if 'LIMIT' in dicc:    
+        if 'LIMIT' in dicc:
             params['threshold'] = dicc['LIMIT']
+        else:
+            params['threshold'] = self._qlimit
 
         # # Parse WHERE chain (always is a optional clause)
         if 'WHERE' in dicc:
@@ -121,7 +129,6 @@ class DruidManager(object):
         else:
             params['filter'] = ''
 
-        
         # Parse SELECT aggs and match with GROUP BY
         params['aggregations'] = dict()
         params['post_aggregations'] = dict()
@@ -241,6 +248,8 @@ class DruidManager(object):
                 # Current time on UNIX timestamp format
                 ts = time.time().__str__()
 
+
+                # -- Timeseries query --
                 if num_dim == 0:
                     query_id = "tseries-" + ts.__str__()
                     
@@ -248,17 +257,19 @@ class DruidManager(object):
                         print "Query-ID:", query_id
 
                     result = self._query.timeseries(
-                        datasource=params['datasource'],
-                        granularity=params['granularity'],
-                        intervals=params['intervals'],
-                        aggregations=params['aggregations'],
-                        post_aggregations=params['post_aggregations'],
-                        filter=eval(params['filter']),
-                        context={"timeout": self._qtimeout, "queryId": query_id}
+                        datasource = params['datasource'],
+                        granularity = params['granularity'],
+                        intervals = params['intervals'],
+                        aggregations = params['aggregations'],
+                        post_aggregations = params['post_aggregations'],
+                        filter = eval(params['filter']),
+                        context = {"timeout": self._qtimeout,
+                            "queryId": query_id}
                     )
 
                     result = result.result_json
 
+                # -- Basic Top-N query --
                 elif num_dim == 1:
                     query_id = "topn-" + ts.__str__()
 
@@ -266,27 +277,158 @@ class DruidManager(object):
                         print "Query-ID:", query_id
 
                     result = self._query.topn(
-                        datasource=params['datasource'],
-                        granularity=params['granularity'],
-                        intervals=params['intervals'],
-                        aggregations=params['aggregations'],
-                        post_aggregations=params['post_aggregations'],
-                        filter=eval(params['filter']),
-                        dimension=params['dimensions'],
-                        metric=params['metric'],
-                        threshold=params['threshold'],
-                        context={"timeout": self._qtimeout, "queryId": query_id}
+                        datasource = params['datasource'],
+                        granularity = params['granularity'],
+                        intervals = params['intervals'],
+                        aggregations = params['aggregations'],
+                        post_aggregations = params['post_aggregations'],
+                        filter = eval(params['filter']),
+                        dimension = params['dimensions'],
+                        metric = params['metric'],
+                        threshold = params['threshold'],
+                        context = {"timeout": self._qtimeout,
+                            "queryId": query_id}
                     )
 
                     result = result.result_json
 
+                # -- Nested Top-N query: alternative to expensive groupby --
+                #
+                # An accuracy error can exists due to the prunning in
+                # intermediate results from previous queries.
+                # Operation:
+                #  0) N = query threshold = value of LIMIT SQL clause
+                #  1) Execute Top-N over dimension-1, aggregating over metrics.
+                #  2) Execute 'N' x Top-N/2 over dimension-2, filtering by
+                #     results from 1), aggregating over metrics again.
+                #  3) Repeat 1) and 2) swapping dimension-1 and dimension-2
+                #  4) Group results from 2) and 3), and return the greatest N
+                #     results based on metrics aggregation.
+                #
+                
+                # elif num_dim in (2, 3):
+                elif num_dim == 2:
+
+                    query_id = "nestopn-" + ts.__str__()
+
+                    if DEBUG:
+                        print "Query-ID:", query_id
+
+                    th_l1 = params['threshold']
+                    th_l2 = ceil(float(th_l1) / 2)
+
+                    dim = list(params['dimensions'].split(','))
+
+                    dim1 = dim[0].strip()
+                    dim2 = dim[1].strip()
+
+                    # Initial query: TopN over first dimension
+                    res = self._query.topn(
+                        datasource = params['datasource'],
+                        granularity = params['granularity'],
+                        intervals = params['intervals'],
+                        aggregations = params['aggregations'],
+                        post_aggregations = params['post_aggregations'],
+                        filter = eval(params['filter']),
+                        dimension = dim1,
+                        metric = params['metric'],
+                        threshold = th_l1,
+                        context = {"timeout": self._qtimeout,
+                            "queryId": query_id}
+                    )
+
+                    qresult=json.loads(res.result_json)
+
+                    # Make a dictionary where the keys are the intervals
+                    # (funtion of query granularity), and the values are the
+                    # TopN values of the first dimension, "dim1", for each
+                    # interval.
+                    dic_dim1=dict()
+
+                    # qresult is a list of dictionaries
+                    for qres in qresult:
+                        interval = qres['timestamp']
+                        list_dim1 = list()
+
+                        for elem in qres['result']:
+                            list_dim1.append(elem[dim1])
+
+                        dic_dim1.update({interval : list_dim1})
+
+                    # Dictionary for final result
+                    result = list()
+
+                    # Then, launch N queries by interval, one for each value
+                    # of the dimension-1 in the interval. The type of the 
+                    # queries will be TopN too, but the dimension will be
+                    # dimension-2, filtering with dimension-1 every time.
+                    for interval in dic_dim1.keys():
+                        values_dim1 = dic_dim1[interval]
+
+                        if DEBUG:
+                            print '>> Interval: ', interval
+
+                        l2_result = list()
+
+                        for val_dim1 in values_dim1:
+                            query_id = "nestopn-" + ts.__str__()
+
+                            # TopN query: dimension = dim2, threshold = th_l2
+                            res = self._query.topn(
+                                datasource = params['datasource'],
+                                granularity = 'all',
+                                intervals = interval + '/' + \
+                                self._granularities[params['granularity']],
+                                aggregations = params['aggregations'],
+                                post_aggregations = params['post_aggregations'],
+                                filter = (Dimension(dim1) == val_dim1) &
+                                    (eval(params['filter'])),
+                                dimension = dim2,
+                                metric = params['metric'],
+                                threshold = th_l2,
+                                context = {"timeout": self._qtimeout,
+                                    "queryId": query_id}
+                            )
+
+                            if DEBUG:
+                                print 'Dim1: ', val_dim1
+                                print res.result_json
+
+                            qresult=json.loads(res.result_json)
+
+                            for qres in qresult:
+                                for elem in qres['result']:
+                                    elem_merged = elem.copy()
+                                    elem_merged.update({dim1: val_dim1})
+
+                                    l2_result.append(elem_merged)
+
+                        result.append({"timestamp": interval, "result": l2_result})
+                        result = json.dumps(result)
+
+
+                # -- GroupBy query (no limit over results) --
                 else:
                     query_id = "gby-" + ts.__str__()
 
                     if DEBUG:
                         print "Query-ID:", query_id
 
-                    result = '{ "state": "toDo"}'                
+                    
+                    result = self._query.groupby(
+                        datasource = params['datasource'],
+                        granularity = params['granularity'],
+                        intervals = params['intervals'],
+                        aggregations = params['aggregations'],
+                        post_aggregations = params['post_aggregations'],
+                        filter = eval(params['filter']),
+                        dimensions = params['dimensions'],
+                        context = {"timeout": self._qtimeout,
+                            "queryId": query_id}
+                    )
+
+                    result = result.result_json
+
 
             except Exception as err:
                 # Re-launch exception to manage in main program:

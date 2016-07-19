@@ -8,7 +8,7 @@
 .. moduleauthor:: Ignacio Campos Rivera <icamposrivera@gmail.com>
 """
 
-DEBUG = True
+DEBUG = False
 
 DBACCESS = {
     'mysql': {
@@ -30,7 +30,8 @@ DBACCESS = {
             'passwd': '',
             'protocol': 'http',
             'url_root_path': 'druid/v2/',
-            'query_timeout': 60000  # milisec
+            'query_timeout': 60000,  # milisec
+            'query_limit': 20 # default limit for results
         }
     },
     'elasticsearch': {
