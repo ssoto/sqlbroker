@@ -363,6 +363,9 @@ class DruidManager(object):
             for val_dim1 in values_dim1:
                 query_id = "nestopn-" + time.time().__str__()
 
+                if DEBUG:
+                    print "Query-ID:", query_id
+
                 # TopN query: dimension = dim2, threshold = th_l2
                 res = self._query.topn(
                     datasource = params['datasource'],
@@ -477,8 +480,8 @@ class DruidManager(object):
                     dim_ord = [dimensions[0].strip(), dimensions[1].strip()]
                     result_1 = self.nested_topn(params, dim_ord)
 
-                    #dim_ord = [dimensions[1].strip(), dimensions[0].strip()]
-                    #result_2 = self.nested_topn(params, dim_ord)
+                    dim_ord = [dimensions[1].strip(), dimensions[0].strip()]
+                    result_2 = self.nested_topn(params, dim_ord)
 
                     # Merge result_1 and result_2, order results by aggregation
                     # metric and discard rows beyond the value of the LIMIT
@@ -486,7 +489,8 @@ class DruidManager(object):
 
                     # << TODO >>
 
-                    result = result_1
+                    result = result_1.copy()
+                    result.update(result_2)
 
 
                 # -- GroupBy query (no limit over results) --
