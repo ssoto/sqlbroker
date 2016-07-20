@@ -10,6 +10,7 @@
 
 import re
 import time
+import json
 from math import ceil
 #import requests
 
@@ -20,7 +21,6 @@ from pydruid.utils import aggregators
 from pydruid.utils.aggregators import *
 from pydruid.utils import postaggregator
 from pydruid.utils.postaggregator import *
-
 
 from sqlbroker.settings import DBACCESS, DEBUG
 from sqlbroker.lib.utils import Singleton, QueryError, json_loads_byteified
@@ -308,8 +308,9 @@ class DruidManager(object):
              2) Execute 'N' x Top-N/2 over dimension-2, filtering by
                 results from 1), aggregating over metrics again.
 
-            Return a list of {timestamp, result}, where 'result' is a list of
-            dictionaries in the format (dim1, dim2, metric_aggs).
+            Return a list of dictionaries {timestamp: ts, result: res}, where
+            'res' is a list of dictionaries in the format {dim1: val1, dim2:
+            val2, metric_aggs: val}.
         """
 
         th_l1 = params['threshold']
@@ -414,8 +415,11 @@ class DruidManager(object):
 
                         l2_result.append(elem_merged)
 
+            l2_result = sorted(l2_result, key=lambda k: k['suma'], reverse=True)
+
             result.append({"timestamp": interval, "result": l2_result})
 
+        result = sorted(result, key=lambda k: k['timestamp'])
         return result
 
 
@@ -504,7 +508,10 @@ class DruidManager(object):
                     # metric and discard rows beyond the value of the LIMIT
                     # clause.
                     result_1.extend(result_2)
-                    result = json.dumps(result_1)#, sort_keys=True)
+
+                    ####dict([(i,d1.get(i,())+d2.get(i,())) for i in set(d1.keys()+d2.keys())])
+
+                    result = json.dumps(sorted(result_1, key=lambda k: k['timestamp']))
 
 
                 # -- GroupBy query (no limit over results) --
