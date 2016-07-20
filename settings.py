@@ -8,7 +8,7 @@
 .. moduleauthor:: Ignacio Campos Rivera <icamposrivera@gmail.com>
 """
 
-DEBUG = False
+DEBUG = True
 
 DBACCESS = {
     'mysql': {
