@@ -14,7 +14,7 @@ import json
 from flask import Flask, request, url_for
 
 from sqlbroker.settings import DEBUG, DBACCESS
-from sqlbroker.lib.utils import DynamicImporter, QueryError
+from sqlbroker.lib.utils import DynamicImporter, QueryError, json_loads_byteified
 
 
 app = Flask(__name__)
@@ -55,25 +55,32 @@ def launch_query(ddbb):
     #In another case, request body is supposed to be a SQL statement:
     elif request.method == 'POST':
 
-    # TODO: separar sentencias SQL en sentencias simples y hacer varias llamadas:
+        result = list()
+
+        # split SQL set into simple sentences and launch related queries:
         for statement in request.data.__str__().split(';'):
             st = statement.strip()
 
             if st != '':
                 try:
-                    data = dbmanager.query('sql', st).__str__()
+                    data = dbmanager.query('sql', st)
                     status = "ok"
-                    res = {"status": status, "data": data}
 
                     # TODO: parse 'res'
-                    result += res.__str__()
+                    #result += res.__str__()
+                    result.append({"status": status, "data": data})
 
                 except Exception as err:
                     status = "error"
-                    result = json.dumps({"status": status, "description": err.__str__()})
+                    result = [{"status": status, "description": err.__str__()}]
+
+                    if DEBUG:
+                        import traceback
+                        traceback.print_exc()
+
                     break
 
-    return result
+    return json.dumps(result)
 
 
 with app.test_request_context():

@@ -23,7 +23,7 @@ from pydruid.utils.postaggregator import *
 
 
 from sqlbroker.settings import DBACCESS, DEBUG
-from sqlbroker.lib.utils import Singleton, QueryError
+from sqlbroker.lib.utils import Singleton, QueryError, json_loads_byteified
 from sqlbroker.lib.sqlparser import SQLParser as SQLP
 
 
@@ -207,7 +207,10 @@ class DruidManager(object):
 
     #-----------------------------------------------------
     def timeseries(self, params):
-        """ Wrapper for pydruid Timeseries query. """
+        """
+            Wrapper for pydruid Timeseries query that returns a JSON string
+            containing query result.
+        """
 
         query_id = "tseries-" + time.time().__str__()
                     
@@ -229,7 +232,10 @@ class DruidManager(object):
 
     #-----------------------------------------------------
     def topn(self, params):
-        """ Wrapper for pydruid TopN query. """
+        """
+            Wrapper for pydruid TopN query that returns a JSON string
+            containing query result.
+        """
 
         # Current time on UNIX timestamp format to build the query-id.
         query_id = "topn-" + time.time().__str__()
@@ -255,7 +261,10 @@ class DruidManager(object):
    
     #-----------------------------------------------------
     def groupby(self, params):
-        """ Wrapper for pydruid Groupby query. """
+        """
+            Wrapper for pydruid Groupby query that returns a JSON string
+            containing query result.
+        """
 
         query_id = "gby-" + time.time().__str__()
 
@@ -289,7 +298,8 @@ class DruidManager(object):
                         from original SQL query.
 
                 :dim_ord: list that contains dimesions in the order that
-                        grouping queries must be performed.
+                        grouping queries must be performed. Currently, only
+                        2 dimensions are supported.
 
             Operation steps:
 
@@ -297,6 +307,9 @@ class DruidManager(object):
              1) Execute Top-N over dimension-1, aggregating over metrics.
              2) Execute 'N' x Top-N/2 over dimension-2, filtering by
                 results from 1), aggregating over metrics again.
+
+            Return a list of {timestamp, result}, where 'result' is a list of
+            dictionaries in the format (dim1, dim2, metric_aggs).
         """
 
         th_l1 = params['threshold']
@@ -304,9 +317,6 @@ class DruidManager(object):
 
         dim1 = dim_ord[0]
         dim2 = dim_ord[1]
-
-        # if num_dim > 2:
-        #     dim3 = dim[2].strip()
 
         # Initial query: TopN over first dimension
         query_id = "nestopn-" + time.time().__str__()
@@ -328,7 +338,12 @@ class DruidManager(object):
                 "queryId": query_id}
         )
 
-        qresult = json.loads(res.result_json)
+        if DEBUG:
+            print 'L1 query result: ', res.result_json
+
+        # Load JSON string as a Python object, transforming unicode
+        # strings in UTF-8 format.
+        qresult = json_loads_byteified(res.result_json)
 
         # Make a dictionary where the keys are the intervals
         # (funtion of query granularity), and the values are the
@@ -354,10 +369,10 @@ class DruidManager(object):
         # queries will be TopN too, but the dimension will be
         # dimension-2, filtering by dimension-1 every time.
         for interval, values_dim1 in dic_dim1.items():
- 
+            
             if DEBUG:
-                print '>> Interval: ', interval
-
+                print 'L2 query interval: ', interval
+            
             l2_result = list()
 
             for val_dim1 in values_dim1:
@@ -384,10 +399,13 @@ class DruidManager(object):
                 )
 
                 if DEBUG:
-                    print 'Dim1: ', val_dim1
+                    print 'L2 query result, dim1 = ', val_dim1
                     print res.result_json
 
-                qresult=json.loads(res.result_json)
+
+                # Load JSON string as a Python object, transforming unicode
+                # strings in UTF-8 format.
+                qresult=json_loads_byteified(res.result_json)
 
                 for qres in qresult:
                     for elem in qres['result']:
@@ -398,7 +416,7 @@ class DruidManager(object):
 
             result.append({"timestamp": interval, "result": l2_result})
 
-        return json.dumps(result)
+        return result
 
 
     #-----------------------------------------------------
@@ -411,9 +429,7 @@ class DruidManager(object):
 
         if qtype == 'json':
             # Native query for tests using 'requests' module
-
-            # TODO **************
-
+            # TODO
             pass
 
         elif qtype == 'sql':
@@ -430,9 +446,10 @@ class DruidManager(object):
 
                 # length of dimension list = type of query
                 #
-                #   - timeseries:           long (dimension) = 0
-                #   - topN:                 long (dimension) = 1
-                #   - groupby (nested topN):long (dimensiones) = 1..N
+                #   - Timeseries:           long (dimension) = 0
+                #   - TopN:                 long (dimension) = 1
+                #   - Nested-topN:          long (dimension) = 2 (currently)
+                #   - Groupby (nested topN):long (dimensiones) = 3..N
 
                 if 'dimensions' in params:
                     dimensions = list(params['dimensions'].split(','))
@@ -455,7 +472,7 @@ class DruidManager(object):
                 
                 # -- Nested Top-N query: alternative to expensive groupby --
                 #
-                # TODO: support for 3 dimensions
+                # TODO: add support for 3 dimensions
                 # elif num_dim in (2, 3):
                 #
                 elif num_dim == 2:
@@ -486,11 +503,8 @@ class DruidManager(object):
                     # Merge result_1 and result_2, order results by aggregation
                     # metric and discard rows beyond the value of the LIMIT
                     # clause.
-
-                    # << TODO >>
-
-                    result = result_1.copy()
-                    result.update(result_2)
+                    result_1.extend(result_2)
+                    result = json.dumps(result_1)#, sort_keys=True)
 
 
                 # -- GroupBy query (no limit over results) --
@@ -499,11 +513,9 @@ class DruidManager(object):
 
             except Exception as err:
                 # Re-launch exception to manage in main program:
-                
                 if DEBUG:
                     import traceback
                     traceback.print_exc()
-
                 # Launch last exception:
                 raise
     
