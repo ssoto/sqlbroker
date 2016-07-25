@@ -510,16 +510,26 @@ class DruidManager(object):
                     merged = dict()
                     for item in result_1 + result_2:
                         if item['timestamp'] in merged:
-                            merged[item['timestamp']] = merged[item['timestamp']] + item['result']
+                            merged[item['timestamp']] = \
+                            merged[item['timestamp']] + item['result']
                         else:
                             # item['result'] is a list of dictionaries
                             merged[item['timestamp']] = item['result']
                     
-                    # Delete duplicates and order by metric:
-                    result = [ {'timestamp': k, 'result': sorted([dict(y) for y in set(tuple(x.items()) for x in v)], key=lambda k: k[params['metric']], reverse=True)} for k,v in merged.items()]
+                    # Delete duplicates and order by metric: list is a ordered
+                    # collection, whereas that set is an unordered and unique
+                    # container. Tuple is an inmutable list.
+                    # It is necessary to transform the original dictionary in
+                    # a set to delete duplicates, and order the elements before
+                    # assign the final dict to a particular timestamp key.
+                    result = [ {'timestamp': k,
+                        'result': sorted([dict(y) for y in set(tuple(x.items())
+                        for x in v)], key=lambda k: k[params['metric']],
+                        reverse=True)} for k,v in merged.items()]
                     
-                    # Order by timestamp:
-                    result = json.dumps(sorted(result, key=lambda k: k['timestamp']))
+                    # Finally, order the dictionary list by timestamp:
+                    result = json.dumps(sorted(result,
+                        key=lambda k: k['timestamp']))
 
                 # -- GroupBy query (no limit over results) --
                 else:

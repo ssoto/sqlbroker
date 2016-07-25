@@ -92,5 +92,5 @@ with app.test_request_context():
 
 
 if __name__ == "__main__":
-    app.run(host='10.200.3.35', port='3000', threaded=True)
+    app.run(host='192.168.1.119', port='3000', threaded=True)
 
