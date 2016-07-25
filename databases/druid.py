@@ -415,11 +415,8 @@ class DruidManager(object):
 
                         l2_result.append(elem_merged)
 
-            l2_result = sorted(l2_result, key=lambda k: k['suma'], reverse=True)
-
             result.append({"timestamp": interval, "result": l2_result})
-
-        result = sorted(result, key=lambda k: k['timestamp'])
+            
         return result
 
 
@@ -509,10 +506,20 @@ class DruidManager(object):
                     # clause.
                     result_1.extend(result_2)
 
-                    ####dict([(i,d1.get(i,())+d2.get(i,())) for i in set(d1.keys()+d2.keys())])
-
-                    result = json.dumps(sorted(result_1, key=lambda k: k['timestamp']))
-
+                    # Merge results from both lists grouping by timestamp:
+                    merged = dict()
+                    for item in result_1 + result_2:
+                        if item['timestamp'] in merged:
+                            merged[item['timestamp']] = merged[item['timestamp']] + item['result']
+                        else:
+                            # item['result'] is a list of dictionaries
+                            merged[item['timestamp']] = item['result']
+                    
+                    # Delete duplicates and order by metric:
+                    result = [ {'timestamp': k, 'result': sorted([dict(y) for y in set(tuple(x.items()) for x in v)], key=lambda k: k[params['metric']], reverse=True)} for k,v in merged.items()]
+                    
+                    # Order by timestamp:
+                    result = json.dumps(sorted(result, key=lambda k: k['timestamp']))
 
                 # -- GroupBy query (no limit over results) --
                 else:
