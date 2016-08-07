@@ -11,6 +11,7 @@
 import os
 import json
 
+
 class Singleton(type):
 
     _instances = {}
@@ -18,11 +19,12 @@ class Singleton(type):
     def __call__(cls, *args, **kwargs):
 
         if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args,
-                **kwargs)
+            cls._instances[cls] = super(Singleton, cls).__call__(
+                *args, **kwargs
+            )
 
-        #If you want to run __init__ every time the class is called, add
-        #else:
+        # If you want to run __init__ every time the class is called, add
+        # else:
         #    cls._instances[cls].__init__(*args, **kwargs)
 
         return cls._instances[cls]
@@ -37,14 +39,14 @@ class DynamicImporter:
         self._module = module_name
         self._class = self.underscore_to_camelcase(class_name)
 
-
     def instance_class(self):
         """Instance dynamic module.class"""
         try:
             if os.path.isfile(self._path + '/' + self._module + '.py'):
 
-                module_ = __import__(self._path + '.' + self._module,
-                    fromlist=[self._class])
+                module_ = __import__(
+                    self._path + '.' + self._module, fromlist=[self._class]
+                )
 
                 class_ = getattr(module_, self._class)
 
@@ -56,7 +58,6 @@ class DynamicImporter:
             pass
 
         return False
-
 
     def underscore_to_camelcase(self, value):
         """Convert underscored string to camelcased string"""
@@ -73,7 +74,7 @@ class NoDDBB(Exception):
     """No existing DDBB exception."""
 
     def __init__(self, arg):
-        super(Exception, self).__init__()
+        super(NoDDBB, self).__init__()
         self.arg = arg
 
     def __str__(self):
@@ -84,7 +85,7 @@ class QueryError(Exception):
     """Malformed Query exception."""
 
     def __init__(self, arg):
-        super(Exception, self).__init__()
+        super(QueryError, self).__init__()
         self.arg = arg
 
     def __str__(self):
@@ -97,20 +98,22 @@ def json_load_byteified(file_handle):
         ignore_dicts=True
     )
 
+
 def json_loads_byteified(json_text):
     return _byteify(
         json.loads(json_text, object_hook=_byteify),
         ignore_dicts=True
     )
 
-def _byteify(data, ignore_dicts = False):
+
+def _byteify(data, ignore_dicts=False):
     # if this is a unicode string, return its string representation
     if isinstance(data, unicode):
         return data.encode('utf-8')
 
     # if this is a list of values, return list of byteified values
     if isinstance(data, list):
-        return [ _byteify(item, ignore_dicts = True) for item in data ]
+        return [_byteify(item, ignore_dicts=True) for item in data]
 
     # if this is a dictionary, return dictionary of byteified keys and values
     # but only if we haven't already byteified it

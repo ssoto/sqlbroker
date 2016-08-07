@@ -19,29 +19,28 @@ class SQLParser(object):
 
     __metaclass__ = Singleton
 
-
     def __init__(self):
-        super(SQLParser,self).__init__()
+        super(SQLParser, self).__init__()
 
         # For console debugging:
-        if DEBUG == True:
+        if DEBUG:
             print 'SQLParser instance created.'
 
-
-    #  'parse' method returns one dict whose keys are SQL clauses.
     def parse(self, sqlstatement):
+        ''''parse' method returns one dict whose keys are SQL clauses.'''
 
-        sql = sqlparse.format(sqlstatement, strip_comments=True,
+        sql = sqlparse.format(
+            sqlstatement, strip_comments=True,
             reindent=True, indent_width=2, keyword_case='upper',
-            #identifier_case='lower', wrap_after=100000).split('\n')
-            wrap_after=100000).split('\n')
+            # identifier_case='lower', wrap_after=100000).split('\n')
+            wrap_after=100000
+        ).split('\n')
 
         dicc = dict()
         flag = False
 
         for line in sql:
-
-            clause = re.match(r'^(\s*[A-Z]*\s?[A-Z]*)\s(.*)$', line, re.M|re.S)
+            clause = re.match(r'^(\s*[A-Z]*\s?[A-Z]*)\s(.*)$', line, re.M| re.S)
 
             dicc[clause.group(1).__str__().strip()] = \
                 clause.group(2).__str__().strip()
