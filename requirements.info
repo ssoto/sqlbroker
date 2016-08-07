@@ -13,21 +13,25 @@ decorator==4.0.10
 ipython==5.0.0
 ipython-genutils==0.1.0
 itsdangerous==0.24
-numpy==1.11.0
-pandas==0.18.1
+# numpy==1.11.0
+# pandas==0.18.1
 pathlib2==2.1.0
 pexpect==4.2.0
 pickleshare==0.7.2
 prompt-toolkit==1.0.3
 ptyprocess==0.5.1
--e git+https://github.com/wtelecom/pydruid.git@55798ab0717952a9de71c44c3f2d7e3e9e216116#egg=pydruid-master
+#-e git+https://github.com/wtelecom/pydruid.git@55798ab0717952a9de71c44c3f2d7e3e9e216116#egg=pydruid-master
+pydruid
+
 python-dateutil==2.5.3
 pytz==2016.4
 requests==2.10.0
 simplegeneric==0.8.1
 singledispatch==3.4.0.3
 six==1.10.0
--e git+https://github.com/wtelecom/sqlparse@b4a2f07cd782b636328200f5aed30b314133713b#egg=sqlparse-master
+#-e git+https://github.com/wtelecom/sqlparse@b4a2f07cd782b636328200f5aed30b314133713b#egg=sqlparse-master
+sqlparse
+
 tornado==4.3
 traitlets==4.2.2
 wcwidth==0.1.7
