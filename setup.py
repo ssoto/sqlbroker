@@ -34,8 +34,7 @@ setuptools.setup(
 
     packages=setuptools.find_packages(),
     include_package_data=True,
-    install_requires=get_requirements('requirements/requirements.txt'),
-    tests_require=get_requirements('requirements/test-requirements.txt'),
+    install_requires=get_requirements('requirements.info'),
     setup_requires=('versiontools'),
 
     author='WTelecom DevTeam',
