@@ -30,10 +30,10 @@ def launch_query(ddbb):
     manager_root_path = 'databases'
     manager_module = ddbb
     manager_class = ddbb + '_manager'
-    
-    dimporter = DynamicImporter(manager_root_path, manager_module, 
+
+    dimporter = DynamicImporter(manager_root_path, manager_module,
         manager_class)
-    
+
     dbmanager = dimporter.instance_class()
 
     result = ''
@@ -51,7 +51,7 @@ def launch_query(ddbb):
         except Exception as err:
             status = 'error'
             result = {'status': status, 'error': err}
-            
+
     #In another case, request body is supposed to be a SQL statement:
     elif request.method == 'POST':
 
@@ -92,5 +92,4 @@ with app.test_request_context():
 
 
 if __name__ == "__main__":
-    app.run(host='10.200.3.35', port='3000', threaded=True)
-
+    app.run(host='0.0.0.0', port='3000', threaded=True)
