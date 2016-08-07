@@ -31,7 +31,7 @@ DBACCESS = {
             'protocol': 'http',
             'url_root_path': 'druid/v2/',
             'query_timeout': 60000,  # milisec
-            'query_limit': 20 # default limit for results
+            'query_limit': 20  # default limit for results
         }
     },
     'elasticsearch': {
